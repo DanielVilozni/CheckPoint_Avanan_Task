@@ -2,11 +2,10 @@ pipeline {
     agent any
     environment
     {
-        GIT_REPO_URL = 'https://github.com/DanielVilozni/Microservices.git'
         GIT_BRANCH = 'main'
-        DOCKER_IMAGE_NAME = 'microservice1' 
     }
-    stages {
+    stages
+    {
         stage("Checkout the source code from Git")
         {
             steps
@@ -19,6 +18,19 @@ pipeline {
             }          
         }
 
+        stage('Extract Repository Name') {
+            steps {
+                script {
+                    // Extract the repository name from GIT_URL
+                    // Jenkins provides GIT_URL from the webhook
+                    // GIT_URL: https://github.com/VilozniDaniel/Microservice1.git
+                    def repoName = env.GIT_URL.tokenize('/').last().replace('.git', '')
+
+                    echo "Repository Name: ${repoName}" //Microservice1 / Microservice2
+                }
+            }
+        }
+
         stage('Build Docker Image')
         {
             steps
@@ -26,7 +38,7 @@ pipeline {
                 script
                 {
                     // Build Docker image from the checked-out source code
-                    docker.build("${env.DOCKER_IMAGE_NAME}:${env.BUILD_ID}")
+                    docker.build("${repoName}:${env.BUILD_ID}")
                 }
             }
         }
@@ -38,9 +50,47 @@ pipeline {
                 {
                     // Log in to Docker and push the image to DockerHub or another Docker registry
                     docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-credentials-id') {
-                        docker.image("${env.DOCKER_IMAGE_NAME}:${env.BUILD_ID}").push()
+                        docker.image("${repoName}:${env.BUILD_ID}").push()
                     }
                 }
+            }
+        }
+
+        stage("CleanUp")
+        {
+            steps
+            {
+                script
+                {
+                    // Clean up all Docker images from the slave
+                    sh "docker rmi -f $(docker images -a -q) || true"
+                }
+            }
+        }
+    }
+    post
+    {
+        always
+        {
+            script 
+            {
+                // Clean up the workspace after the pipeline execution
+                cleanWs()
+            }
+
+        }
+        success
+        {
+            script
+            {
+                echo "CI build run successfully: ${env.JOB_NAME} ${repoName} #${env.BUILD_NUMBER}"
+            }
+        }
+        failure
+        {
+            script
+            {
+                echo "CI build failed! ${env.JOB_NAME} ${repoName} #${env.BUILD_NUMBER}"
             }
         }
     }
