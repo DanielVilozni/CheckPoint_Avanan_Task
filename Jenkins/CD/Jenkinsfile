@@ -1,6 +1,5 @@
 pipeline {
     agent any
-
     // Prameters block to accept input parameters
     parameters
     {
