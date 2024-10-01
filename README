@@ -1,0 +1,65 @@
+1. Jenkins CI/CD Pipeline:
+
+The Jenkins pipelines builds the Docker images for two Python microservices and deploys them to AWS ECS.
+
+Steps to Run Jenkins:
+
+Clone the Repository: Clone the project repository containing the Dockerfile and the Jenkinsfiles.
+Set Up Jenkins:
+
+Install the necessary plugins: Docker Pipeline, Git, Pipeline.
+Add AWS credentials in Jenkins under Manage Jenkins → Manage Credentials
+
+a. Create a Jenkins Pipeline Job for the CI pipeline:
+Create a new Pipeline Job in Jenkins.
+In the Pipeline Definition, select Pipeline script from SCM and provide the GitHub repository URL.
+Trigger the CI Pipeline:
+
+The Jenkins CI pipeline will:
+Checkout the code
+Build the Docker images for the microservices.
+Push the Docker images to ECR.
+
+b. Create a Jenkins Pipeline Job for the CD pipeline:
+Create a new Pipeline Job in Jenkins.
+In the Pipeline Definition, select Pipeline script from SCM and provide the GitHub repository URL.
+
+After the CI pipeline builds and pushes the Docker images, the CD pipeline will:
+Create new version to the task definition and update the service with the new reviosion of the task definition.
+
+2. Terraform Infrastructure:
+
+Terraform provisions AWS resources: ECS cluster, S3 bucket, SQS queue and VPC.
+
+Navigate to the Terraform Directory:
+
+cd Terraform
+
+Initialize Terraform: Initialize Terraform to download the necessary providers and modules.
+
+cd workspace/dev/vpc
+terraform init
+terraform plan
+terraform apply
+
+cd workspace/dev/ecs
+terraform init
+terraform plan
+terraform apply
+
+cd workspace/dev/s3
+terraform init
+terraform plan
+terraform apply
+
+cd workspace/dev/sqs
+terraform init
+terraform plan
+terraform apply
+
+VPC
+An ECS cluster running on Fargate.
+Two ECS services, one for each microservice.
+An S3 bucket for storing files.
+An SQS queue for message queuing.
+IAM roles and security groups for ECS and other resources.
