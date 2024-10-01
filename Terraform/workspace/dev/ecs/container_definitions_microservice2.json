@@ -1,0 +1,16 @@
+[
+    {
+      "name": "microservice2",
+      "image": "%accountID%.dkr.ecr.us-east-1.amazonaws.com/microservices/microservice2:1",
+      "cpu": 256,
+      "memory": 512,
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "hostPort": 8080
+        }
+      ]
+    }
+  ]
+  

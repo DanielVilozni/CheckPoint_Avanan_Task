@@ -1,6 +1,6 @@
 [
     {
-      "name": "my-container",
+      "name": "microservice1",
       "image": "%accountID%.dkr.ecr.us-east-1.amazonaws.com/microservices/microservice1:1",
       "memory": 512,
       "cpu": 256,
