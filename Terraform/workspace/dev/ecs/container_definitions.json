@@ -1,0 +1,16 @@
+[
+    {
+      "name": "my-container",
+      "image": "my-docker-repo/my-app:latest",
+      "memory": 512,
+      "cpu": 256,
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "hostPort": 80
+        }
+      ]
+    }
+]
+ 

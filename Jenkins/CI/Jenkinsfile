@@ -1,0 +1,47 @@
+pipeline {
+    agent any
+    environment
+    {
+        GIT_REPO_URL = 'https://github.com/DanielVilozni/Microservices.git'
+        GIT_BRANCH = 'main'
+        DOCKER_IMAGE_NAME = 'microservice1' 
+    }
+    stages {
+        stage("Checkout the source code from Git")
+        {
+            steps
+            {
+                script
+                {
+                    // Check out the code from the GitHub repository
+                    git branch: "${env.GIT_BRANCH}", url: "${env.GIT_REPO_URL}"
+                }
+            }          
+        }
+
+        stage('Build Docker Image')
+        {
+            steps
+            {
+                script
+                {
+                    // Build Docker image from the checked-out source code
+                    docker.build("${env.DOCKER_IMAGE_NAME}:${env.BUILD_ID}")
+                }
+            }
+        }
+        stage('Push Docker Image to Registry')
+        {
+            steps
+            {
+                script
+                {
+                    // Log in to Docker and push the image to DockerHub or another Docker registry
+                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-credentials-id') {
+                        docker.image("${env.DOCKER_IMAGE_NAME}:${env.BUILD_ID}").push()
+                    }
+                }
+            }
+        }
+    }
+}
