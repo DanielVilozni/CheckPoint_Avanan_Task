@@ -2,7 +2,9 @@ pipeline {
     agent any
     environment
     {
-        GIT_BRANCH = 'main'
+        GIT_BRANCH = "main"
+        AWS_REGION = "us-east-1"
+        awsCredential = "aws-dev"
     }
     stages
     {
@@ -18,39 +20,43 @@ pipeline {
             }          
         }
 
-        stage('Extract Repository Name') {
+        stage("Extract Repository Name") {
             steps {
                 script {
                     // Extract the repository name from GIT_URL
                     // Jenkins provides GIT_URL from the webhook
                     // GIT_URL: https://github.com/VilozniDaniel/Microservice1.git
-                    def repoName = env.GIT_URL.tokenize('/').last().replace('.git', '')
-
+                    repoName = env.GIT_URL.tokenize('/').last().replace('.git', '')
                     echo "Repository Name: ${repoName}" //Microservice1 / Microservice2
                 }
             }
         }
 
-        stage('Build Docker Image')
+        stage("Build Docker Image")
         {
             steps
             {
                 script
                 {
                     // Build Docker image from the checked-out source code
-                    docker.build("${repoName}:${env.BUILD_ID}")
+                    ecrRegistry = "${accountID}.dkr.ecr.${region}.amazonaws.com/Microservices/${repoName}"
+                    docker.withRegistry("https://" + ecrRegistry, "ecr:${region}:" + awsCredential)
+                    {
+                        customImage = docker.build("${repoName}:${env.BUILD_ID}", ".")
+                    }
                 }
             }
         }
-        stage('Push Docker Image to Registry')
+        stage("Push Docker Image to Registry")
         {
             steps
             {
                 script
                 {
-                    // Log in to Docker and push the image to DockerHub or another Docker registry
-                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-credentials-id') {
-                        docker.image("${repoName}:${env.BUILD_ID}").push()
+                    // Push the Docker image to ECR
+                    docker.withRegistry("https://" + ecrRegistry, "ecr:${region}:" + awsCredential)
+                    {
+                        customImage.push()
                     }
                 }
             }

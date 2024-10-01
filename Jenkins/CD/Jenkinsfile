@@ -1,9 +1,84 @@
 pipeline {
     agent any
-    stages {
-        stage('Deploy') {
+
+    // Prameters block to accept input parameters
+    parameters
+    {
+        string(name: 'Version', defaultValue: 'latest', description: 'Version of the Docker image to deploy')
+        string(name: 'Microservice', defaultValue: 'Microservice1', description: 'The name of the Microservice')
+        string(name: 'Destination_Environment', defaultValue: 'dev', description: 'The environment you want to deploy to')
+    }
+    environment
+    {
+        // AWS environment variables
+        AWS_REGION = 'us-east-1'
+        ECS_CLUSTER = 'my-ecs-cluster'
+        ecrRegistry = "${env.AWS_REGION}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/Microservices/${params.Microservice}"
+        
+    }
+
+    stages
+    {
+        stage("Get Parameters from choice")
+        {
             steps {
-               
+                script {
+                    echo "params.Destination_Environment: ${params.Destination_Environment}"
+                    echo "params.Version: ${params.Version}"
+                    echo "params.Microservice: ${params.Microservice}"
+
+                    echo "Deploying ${params.Microservice} with version ${params.Version} on ECS..."
+                    
+                }
+            }
+        }
+
+        stage("Update ECS Task Definition and the Service of the Microservice")
+        {
+            steps
+            {
+                script
+                {
+                    // Update the ECS task definition for microservice1 with the new version of the image
+                    def imageName = "${env.DOCKER_REGISTRY}/${params.Microservice}:${params.Version}"
+
+                    echo "Updating ECS task definition for microservice1 with image ${imageName}..."
+
+                    // Step 1: Retrieve the current task definition
+                    def taskDef = sh(script: """
+                        aws ecs describe-task-definition --task-definition ${params.Microservice} --region ${env.AWS_REGION} --query 'taskDefinition'
+                    """, returnStdout: true)
+
+                    // Step 2: Replace the Docker image with the new image
+                    taskDef = taskDef.replaceAll('"image": ".*"', '"image": "' + imageName + '"')
+
+                    // Step 3: Register the new task definition revision
+                    sh """
+                    echo '${taskDef}' > taskdef.json
+                    aws ecs register-task-definition --cli-input-json file://taskdef.json --region ${env.AWS_REGION}
+                    """
+
+                    // Step 4: Update the ECS service to use the new task definition revision
+                    sh """
+                    aws ecs update-service --cluster ${env.ECS_CLUSTER} --service ${params.Microservice} --force-new-deployment --region ${env.AWS_REGION}
+                    """
+                }
+            }
+        }
+        
+    }
+
+    post {
+        success {
+            script
+            {
+                echo "CD run successfully: ${env.JOB_NAME} ${params.Microservice} #${env.BUILD_NUMBER}"
+            }
+        }
+        failure {
+            script
+            {
+                echo "CD build failed! : ${env.JOB_NAME} ${params.Microservice} #${env.BUILD_NUMBER}"
             }
         }
     }
