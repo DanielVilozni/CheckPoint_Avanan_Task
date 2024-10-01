@@ -39,29 +39,36 @@ pipeline {
             {
                 script
                 {
-                    // Update the ECS task definition for microservice1 with the new version of the image
-                    def imageName = "${env.DOCKER_REGISTRY}/${params.Microservice}:${params.Version}"
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',credentialsId: "${awsCredentials}", accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']])
+                    { 
+                        // Update the ECS task definition for microservice1 with the new version of the image
+                        def imageName = "${env.DOCKER_REGISTRY}/${params.Microservice}:${params.Version}"
 
-                    echo "Updating ECS task definition for microservice1 with image ${imageName}..."
+                        echo "Updating ECS task definition for microservice1 with image ${imageName}..."
 
-                    // Step 1: Retrieve the current task definition
-                    def taskDef = sh(script: """
-                        aws ecs describe-task-definition --task-definition ${params.Microservice} --region ${env.AWS_REGION} --query 'taskDefinition'
-                    """, returnStdout: true)
+                        // Step 1: Retrieve the current task definition
+                        def taskDef = sh(script: """
+                            aws ecs describe-task-definition --task-definition ${params.Microservice} --region ${env.AWS_REGION} --query 'taskDefinition'
+                        """, returnStdout: true)
 
-                    // Step 2: Replace the Docker image with the new image
-                    taskDef = taskDef.replaceAll('"image": ".*"', '"image": "' + imageName + '"')
+                        // Step 2: Replace the Docker image with the new image
+                        taskDef = taskDef.replaceAll('"image": ".*"', '"image": "' + imageName + '"')
 
-                    // Step 3: Register the new task definition revision
-                    sh """
-                    echo '${taskDef}' > taskdef.json
-                    aws ecs register-task-definition --cli-input-json file://taskdef.json --region ${env.AWS_REGION}
-                    """
+                        // Step 3: Register the new task definition revision
+                        sh """
+                        echo '${taskDef}' > taskdef.json
+                        aws ecs register-task-definition --cli-input-json file://taskdef.json --region ${env.AWS_REGION}
+                        """
 
-                    // Step 4: Update the ECS service to use the new task definition revision
-                    sh """
-                    aws ecs update-service --cluster ${env.ECS_CLUSTER} --service ${params.Microservice} --force-new-deployment --region ${env.AWS_REGION}
-                    """
+
+                        // Create new revision of Task Definition        
+                        sh(script: "aws ecs register-task-definition --family ${params.Microservice} --region ${env.AWS_REGION} --cli-input-json file://taskdef.json", returnStdout: true).trim() 
+                        
+
+                        // Step 4: Update the ECS service to use the new revision of task definition
+                        sh (script: "aws ecs update-service --region ${env.AWS_REGION} --cluster ${env.ECS_CLUSTER} --service ${params.Microservice} --task-definition ${taskFamily}:${taskRevision} --desired-count 1" , returnStdout: true).trim()
+                    }
+                    
                 }
             }
         }
